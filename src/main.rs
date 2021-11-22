@@ -2,6 +2,7 @@ mod player;
 mod rope;
 
 use crate::player::PlayerPlugin;
+use crate::rope::RopePlugin;
 use bevy::core::FixedTimestep;
 use bevy::{pbr::AmbientLight, prelude::*};
 use heron::prelude::*;
@@ -31,6 +32,7 @@ fn main() {
         .insert_resource(Msaa { samples: 4 })
         .add_plugins(DefaultPlugins)
         .add_plugin(PlayerPlugin)
+        .add_plugin(RopePlugin)
         .add_plugin(PhysicsPlugin::default())
         .add_startup_system(setup.system())
         .add_system_set(
