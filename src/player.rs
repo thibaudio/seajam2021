@@ -1,11 +1,10 @@
-use crate::rope::RopePoint;
 use crate::Models;
 use crate::Speed;
 use bevy::prelude::*;
 use heron::prelude::*;
 
-struct PlayerLeft;
-struct PlayerRight;
+pub struct PlayerLeft;
+pub struct PlayerRight;
 
 pub struct PlayerPlugin;
 impl Plugin for PlayerPlugin {
@@ -26,10 +25,6 @@ impl Plugin for PlayerPlugin {
 
 fn spawn_player(mut commands: Commands, models: Res<Models>) {
     let starting_left_position = Vec3::new(-10.0, 0.0, 0.0);
-    let starting_rope_point = RopePoint {
-        previous_position: starting_left_position,
-        locked: true,
-    };
     commands
         .spawn_bundle((
             Transform::from_matrix(Mat4::from_rotation_translation(
@@ -42,7 +37,6 @@ fn spawn_player(mut commands: Commands, models: Res<Models>) {
         .insert(Speed(12.0))
         .insert(RigidBody::Dynamic)
         .insert(CollisionShape::Sphere { radius: 5. })
-        .insert(starting_rope_point)
         .with_children(|parent| {
             parent.spawn_scene(models.player.clone());
         });
@@ -55,7 +49,6 @@ fn spawn_player(mut commands: Commands, models: Res<Models>) {
             )),
             GlobalTransform::identity(),
         ))
-        .insert(RopePoint {})
         .insert(PlayerRight)
         .insert(Speed(12.0))
         .insert(RigidBody::Dynamic)
@@ -63,10 +56,6 @@ fn spawn_player(mut commands: Commands, models: Res<Models>) {
         .with_children(|parent| {
             parent.spawn_scene(models.player.clone());
         });
-
-    for i in 0..4 {
-        let entity = commands.spawn().insert(RopePoint);
-    }
 }
 
 fn keyboard_input_left(
