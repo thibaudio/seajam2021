@@ -3,8 +3,8 @@ use crate::player::PlayerRight;
 use bevy::prelude::*;
 use heron::prelude::*;
 
-const CURRENT: f32 = 3.0;
-const ITERS: u32 = 5;
+const CURRENT: f32 = 100.0;
+const ITERS: u32 = 10;
 pub struct RopePlugin;
 impl Plugin for RopePlugin {
     fn build(&self, app: &mut AppBuilder) {
@@ -32,17 +32,15 @@ pub struct RopeStick {
 
 fn spawn_rope(
     mut commands: Commands,
-    mut q: QuerySet<(
-        Query<(Entity, &Transform), With<PlayerLeft>>,
-        Query<(Entity, &Transform), With<PlayerRight>>,
-    )>,
+    query_left: Query<(Entity, &Transform), With<PlayerLeft>>,
+    query_right: Query<(Entity, &Transform), With<PlayerRight>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     if let (
         Ok((dolphin_left, transform_dolphin_left)),
         Ok((dolphin_right, transform_dolphin_right)),
-    ) = (q.q0_mut().single_mut(), q.q1_mut().single_mut())
+    ) = (query_left.single(), query_right.single())
     {
         let rope_point_left = RopePoint {
             previous_position: transform_dolphin_left.translation,
@@ -59,7 +57,7 @@ fn spawn_rope(
         commands
             .entity(dolphin_right)
             .insert(rope_point_right.clone());
-        let sub = 5;
+        let sub = 9;
         let increment = (transform_dolphin_right.translation.x
             - transform_dolphin_left.translation.x)
             / sub as f32;
@@ -71,7 +69,7 @@ fn spawn_rope(
                 //.spawn()
                 .spawn_bundle(PbrBundle {
                     mesh: meshes.add(Mesh::from(shape::Icosphere {
-                        radius: 1.,
+                        radius: 0.1,
                         subdivisions: 32,
                     })),
                     transform: Transform::from_translation(
@@ -95,7 +93,7 @@ fn spawn_rope(
             commands.spawn().insert(RopeStick {
                 pointA_entity: points[i],
                 pointB_entity: points[i + 1],
-                length: increment,
+                length: increment + 1 as f32,
             });
         }
     }
@@ -110,31 +108,46 @@ fn simulate_points(time: Res<Time>, mut query: Query<(&mut Transform, &mut RopeP
         let position_before_update = transform.translation;
         transform.translation =
             transform.translation + transform.translation - point.previous_position;
-        transform.translation =
-            Vec3::new(0., 0., 1.) * CURRENT * time.delta_seconds() * time.delta_seconds();
+        transform.translation = transform.translation
+            + Vec3::new(0., 0., 1.) * CURRENT * time.delta_seconds() * time.delta_seconds();
         point.previous_position = position_before_update;
     }
 }
 
 fn simulate_sticks(
     mut query: Query<&mut RopeStick>,
-    mut point_query: Query<(&mut Transform, &RopePoint)>,
+    mut q: QuerySet<(
+        Query<(&Transform, &RopePoint)>,
+        Query<(&mut Transform, &RopePoint)>,
+    )>,
 ) {
     for i in 0..ITERS {
         for stick in query.iter_mut() {
-            if let (Ok((mut pointA_transform, pointA)), Ok((mut pointB_transform, pointB))) = (
-                point_query.get_mut(stick.pointA_entity),
-                point_query.get_mut(stick.pointB_entity),
+            let mut stick_center = Vec3::ZERO;
+            let mut stick_dir = Vec3::ZERO;
+            if let (Ok((pointA_transform, pointA)), Ok((pointB_transform, pointB))) = (
+                q.q0().get(stick.pointA_entity),
+                q.q0().get(stick.pointB_entity),
             ) {
-                let stick_center =
-                    (pointA_transform.translation + pointB_transform.translation) / 2.0;
-                let stick_dir =
+                stick_center = (pointA_transform.translation + pointB_transform.translation) / 2.0;
+                stick_dir =
                     (pointA_transform.translation - pointB_transform.translation).normalize();
+            }
+            if let Ok((mut pointA_transform_write, pointA)) =
+                q.q1_mut().get_mut(stick.pointA_entity)
+            {
                 if !pointA.locked {
-                    pointA_transform.translation = stick_center + stick_dir * stick.length / 2.0;
+                    pointA_transform_write.translation =
+                        stick_center + stick_dir * stick.length / 2.0;
                 }
+            }
+
+            if let Ok((mut pointB_transform_write, pointB)) =
+                q.q1_mut().get_mut(stick.pointB_entity)
+            {
                 if !pointB.locked {
-                    pointB_transform.translation = stick_center - stick_dir * stick.length / 2.0;
+                    pointB_transform_write.translation =
+                        stick_center - stick_dir * stick.length / 2.0;
                 }
             }
         }
